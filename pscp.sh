@@ -117,7 +117,7 @@ function parseArgs {
         2) dest="$arg"
            local colonIndex=$(strIndexOf "$dest" :)
 
-           # Default to remote hom directory if path not set with colon
+           # Default to remote home directory if path not set with colon
            if [ ${colonIndex} -lt 0 ]; then
                dest_host="${dest}"
                dest_path='~/'
