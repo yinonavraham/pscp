@@ -19,7 +19,7 @@ pscp.sh myfile myuser@some-other-host:/path/to/
 
 * **`--help`**  
   Show usage help. Use this to inspect all options the utility supports.
-* **`--parallelism=<value>`**  
+* **`--threads=<value>`**
   Specify the number of chunks to split the file to.
   These chunks are then sent in parallel.
 * **`--verbose`**  
@@ -31,7 +31,7 @@ The script performs the following main operations:
 
 1. Create a temporary local transaction directory. 
    This directory is used to save all temporary files created during the transfer.
-1. Split the source file to chunks (according to the parallelism value).
+1. Split the source file to chunks (according to the threads value).
    These chunk files are saved in the local transaction directory.
 1. Create a temporary transaction directory in the remote host.
 1. Start background processes to transfer each chunk file (using `scp`). 
@@ -46,7 +46,7 @@ The script performs the following main operations:
 
 This script started as an experiment. 
 As part of the experiment files of various sizes were copied between AWS instances, from Frankfurt DE to Oregon US.
-The same files were copied 10 times using `scp` (i.e. single process) and 10 times using `pscp.sh` with default parallelism (i.e. 10 parallel `scp` processes, each transfers a single chunk).
+The same files were copied 10 times using `scp` (i.e. single process) and 10 times using `pscp.sh` with default threads (i.e. 10 parallel `scp` processes, each transfers a single chunk).
 The results, as can be seen below, transfer time in parallel (using `pscp.sh`) is approximately 30%-40% of the time compared to using `scp`.
 
 ![Average Transfer Time vs. Size](assets/avg_transfer_time.png)  
