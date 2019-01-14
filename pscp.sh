@@ -17,6 +17,7 @@ verify_checksum=true
 measure_time=false
 stats_file=''
 skip_cleanup=false
+setup_cmd=''
 tx_name="pscp_$(date +%s)"
 
 function usage {
@@ -41,6 +42,9 @@ function usage {
   echo "     --stats-file=<file>    Write (append) transfer statistics to a file in CSV format."
   echo "                            The file has the following columns:"
   echo "                            Size (B),Parallelism,Transfer Time (Sec),Assembly Time (Sec)"
+  echo "     --setup=<command>      Run a setup command:"
+  echo "                              uninstall  - uninstall pscp"
+  echo "                              update     - update pscp to its latest version"
   echo "     --verbose              Show verbose output."
   echo "  -h,--help                 Show this help."
   echo ""
@@ -75,6 +79,20 @@ function optionValue {
   echo "${1:$i}"
 }
 
+function installMe {
+  curl -s https://raw.githubusercontent.com/yinonavraham/pscp/master/setup/install.sh | bash
+}
+
+function uninstallMe {
+  curl -s https://raw.githubusercontent.com/yinonavraham/pscp/master/setup/uninstall.sh | bash
+}
+
+function updateMe {
+  echo "Updating pscp..."
+  uninstallMe
+  installMe
+}
+
 function parseArgs {
   local i=1
   local arg_index=1
@@ -101,6 +119,9 @@ function parseArgs {
           ;;
         --stats-file=*)
           stats_file="$(optionValue $arg)"
+          ;;
+        --setup=*)
+          setup_cmd="$(optionValue $arg)"
           ;;
         --verbose)
           VERBOSE=true
@@ -238,9 +259,28 @@ function calcRemoteFileChecksum {
   echo "$shaLine" | sed 's/  *.*//g'
 }
 
+function handleSetupCommand {
+  if [[ ! -z "$setup_cmd" ]]; then
+    logVerbose "Handling setup command: $setup_cmd"
+    case $setup_cmd in
+      uninstall)
+        uninstallMe
+        ;;
+      update)
+        updateMe
+        ;;
+      *)
+        exitWithError "Unexpected setup command: $setup_cmd"
+        ;;
+    esac
+    exit 0
+  fi
+}
+
 ########################################################
 
 parseArgs "$@"
+handleSetupCommand
 validateArgs
 
 # Create local transaction directory
