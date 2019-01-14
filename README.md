@@ -2,17 +2,25 @@
 
 Bash script utility for running secure copy of a file in chunks in parallel.
 
+## Installation
+
+From your favorite terminal, run:
+
+```
+curl -s https://raw.githubusercontent.com/yinonavraham/pscp/master/install.sh | bash
+```
+
 ## Usage
 
 ```
-pscp.sh [OPTIONS] FILE DEST
+pscp [OPTIONS] FILE DEST
 ```
 
 ### Example
 
 In order to copy a local file named `myfile` to path `/path/to/` in a remote host named `some-other-host`, authenticating as `myuser` (based on SSH key), use:
 ```
-pscp.sh myfile myuser@some-other-host:/path/to/
+pscp myfile myuser@some-other-host:/path/to/
 ```
 
 ### Basic Options
@@ -46,8 +54,8 @@ The script performs the following main operations:
 
 This script started as an experiment. 
 As part of the experiment files of various sizes were copied between AWS instances, from Frankfurt DE to Oregon US.
-The same files were copied 10 times using `scp` (i.e. single process) and 10 times using `pscp.sh` with default parallelism (i.e. 10 parallel `scp` processes, each transfers a single chunk).
-The results, as can be seen below, transfer time in parallel (using `pscp.sh`) is approximately 30%-40% of the time compared to using `scp`.
+The same files were copied 10 times using `scp` (i.e. single process) and 10 times using `pscp` with default parallelism (i.e. 10 parallel `scp` processes, each transfers a single chunk).
+The results, as can be seen below, transfer time in parallel (using `pscp`) is approximately 30%-40% of the time compared to using `scp`.
 
 ![Average Transfer Time vs. Size](assets/avg_transfer_time.png)  
 
