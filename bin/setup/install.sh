@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
-set -e
+set -o errexit
+set -o pipefail
+set -o nounset
 
 echo "Installing pscp..."
 
@@ -21,7 +23,7 @@ chmod +x /usr/local/bin/pscp.d/*.sh
 
 ln -s /usr/local/bin/pscp.d/pscp.sh /usr/local/bin/pscp
 
-if [[ "$(which pscp)" == '' ]]; then
+if ! command -v pscp > /dev/null; then
   echo "pscp installation failed!"
   exit 1
 fi
