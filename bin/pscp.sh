@@ -85,8 +85,8 @@ function installMe {
 }
 
 function uninstallMe {
-  if [[ -f /usr/local/bin/pscp.d/uninstal.sh ]]; then
-    /usr/local/bin/pscp.d/uninstal.sh
+  if [[ -f /usr/local/bin/pscp.d/uninstall.sh ]]; then
+    /usr/local/bin/pscp.d/uninstall.sh
   else
     logVerbose "Local uninstall script not found. Falling back to downloading and executing latest script from github."
     curl -s https://raw.githubusercontent.com/yinonavraham/pscp/master/bin/setup/uninstall.sh | bash
