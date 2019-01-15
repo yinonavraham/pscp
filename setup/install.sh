@@ -16,7 +16,8 @@ fi
 mkdir -p /usr/local/bin/pscp.d
 
 curl -fsSL https://raw.githubusercontent.com/yinonavraham/pscp/master/pscp.sh -o /usr/local/bin/pscp.d/pscp.sh
-chmod +x /usr/local/bin/pscp.d/pscp.sh
+curl -fsSL https://raw.githubusercontent.com/yinonavraham/pscp/master/setup/uninstall.sh -o /usr/local/bin/pscp.d/uninstall.sh
+chmod +x /usr/local/bin/pscp.d/*.sh
 
 ln -s /usr/local/bin/pscp.d/pscp.sh /usr/local/bin/pscp
 
