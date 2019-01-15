@@ -1,5 +1,8 @@
 #!/bin/bash
-set -e
+
+set -o errexit
+set -o pipefail
+set -o nounset
 
 DEFAULT_LOCAL_TMP_DIR='/tmp'
 DEFAULT_REMOTE_TMP_DIR='/tmp'
@@ -21,7 +24,8 @@ setup_cmd=''
 tx_name="pscp_$(date +%s)"
 
 function usage {
-  local scriptname=`basename "$0"`
+  local scriptname
+  scriptname="$(basename "$0")"
   echo "Parallel Secure Copy - copy file in chunks"
   echo ""
   echo "Usage:"
@@ -66,7 +70,7 @@ function logVerbose {
 
 function exitWithError {
   echo "ERROR: $1"
-  exit ${2:-1}
+  exit "${2:-1}"
 }
 
 function strIndexOf {
@@ -75,7 +79,8 @@ function strIndexOf {
 }
 
 function optionValue {
-  local i=$(strIndexOf "$1" =)
+  local i
+  i=$(strIndexOf "$1" =)
   i=$((i+1))
   echo "${1:$i}"
 }
@@ -101,18 +106,19 @@ function updateMe {
 
 function parseArgs {
   local i=1
+  local arg
   local arg_index=1
-  while [ "$i" -le "$#" ]; do
+  while [[ "$i" -le "$#" ]]; do
     eval "arg=\${$i}"
-    logVerbose "arg $i : $arg"
+    logVerbose "arg $i : ${arg}"
 
-    if [[ "$arg" == '-'* ]]; then
-      case "$arg" in
+    if [[ "${arg}" == '-'* ]]; then
+      case "${arg}" in
       	-h|--help)
           usage
           ;;
       	-t=*|--threads=*)
-          threads="$(optionValue $arg)"
+          threads="$(optionValue "${arg}")"
           ;;
         --no-verify)
           verify_checksum=false
@@ -124,35 +130,37 @@ function parseArgs {
           measure_time=true
           ;;
         --stats-file=*)
-          stats_file="$(optionValue $arg)"
+          stats_file="$(optionValue "${arg}")"
           ;;
         --setup=*)
-          setup_cmd="$(optionValue $arg)"
+          setup_cmd="$(optionValue "${arg}")"
           ;;
         --verbose)
           VERBOSE=true
           ;;
         *)
-          exitWithError "Unknown option or missing a value: $arg"
+          exitWithError "Unknown option or missing a value: ${arg}"
           ;;
       esac
     else
       case $arg_index in
-        1) file="$arg"
+        1) file="${arg}"
            ;;
-        2) dest="$arg"
-           local colonIndex=$(strIndexOf "$dest" :)
+        2) dest="${arg}"
+           local colonIndex
+           colonIndex=$(strIndexOf "${dest}" :)
 
            # Default to remote home directory if path not set with colon
-           if [ ${colonIndex} -lt 0 ]; then
+           if [[ ${colonIndex} -lt 0 ]]; then
                dest_host="${dest}"
+               # shellcheck disable=SC2088
                dest_path='~/'
            else
-               dest_host="${dest:0:$colonIndex}"
+               dest_host="${dest:0:${colonIndex}}"
                dest_path="${dest:$((colonIndex+1))}"
            fi
            ;;
-        *) exitWithError "Unexpected argument: $arg"
+        *) exitWithError "Unexpected argument: ${arg}"
            ;;
       esac
       arg_index=$((arg_index+1))
@@ -162,12 +170,12 @@ function parseArgs {
   done
 
   logVerbose "File:          ${file}"
-  logVerbose "Destination:   ${dest} (host: $dest_host , path: $dest_path)"
+  logVerbose "Destination:   ${dest} (host: ${dest_host} , path: ${dest_path})"
   logVerbose "Threads:       ${threads}"
 }
 
 function errorIfEmpty {
-  if [ -z $2 ]; then
+  if [[ -z "$2" ]]; then
   	exitWithError "$1"
   fi
 }
@@ -180,73 +188,82 @@ function errorIfNotNumber {
 
 function errorIfNotNumberBetween {
   local msg="$1"
-  local min=$2
-  local max=$3
-  local num=$4
-  errorIfNotNumber "$msg" $num
-  if [[ $num -lt $min ]] || [[ $num -gt $max ]]; then
-    exitWithError "$msg (not in range)"
+  local min="$2"
+  local max="$3"
+  local num="$4"
+  errorIfNotNumber "$msg" "$num"
+  if [[ ${num} -lt ${min} ]] || [[ ${num} -gt ${max} ]]; then
+    exitWithError "${msg} (not in range)"
   fi
 }
 
 function errorIfNotFile {
-  local msg=$1
-  local file=$2
-  if ! [[ -f "$file" ]]; then
-    exitWithError "$msg"
+  local msg="$1"
+  local file="$2"
+  if ! [[ -f "${file}" ]]; then
+    exitWithError "${msg}"
   fi
 }
 
 function validateArgs {
-  errorIfEmpty "FILE argument is required!" $file
-  errorIfEmpty "DEST argument is required!" $dest
-  errorIfNotFile "File does not exist or not a regular file: $file" $file
-  errorIfNotNumberBetween "threads must be a number in the range: [1..20] (got: ${threads})" 1 20 $threads
+  errorIfEmpty "FILE argument is required!" "${file}"
+  errorIfEmpty "DEST argument is required!" "${dest}"
+  errorIfNotFile "File does not exist or not a regular file: ${file}" "${file}"
+  errorIfNotNumberBetween "threads must be a number in the range: [1..20] (got: ${threads})" 1 20 "${threads}"
 }
 
 function wcReturnResult {
-  local result=$(wc "$@" | sed 's/^ *//g' | sed 's/  *.*//g')
-  echo $result
+  local result
+  result=$(wc "$@" | sed 's/^ *//g' | sed 's/  *.*//g')
+  echo "${result}"
 }
 
 function calcFileSize {
-  local size=$(wcReturnResult -c "$file")
-  echo $size
+  local size
+  size=$(wcReturnResult -c "${file}")
+  echo "${size}"
 }
 
 function calcChunkSize {
-  local size=$(calcFileSize)
-  local chunk=$((size/threads + 1))
-  echo $chunk
+  local size
+  local chunk
+  size=$(calcFileSize)
+  chunk=$((size/threads + 1))
+  echo "${chunk}"
 }
 
 function stripFileName {
   local filepath="$1"
-  i=$(strIndexOf "$filepath" /)
+  local i
+  i=$(strIndexOf "${filepath}" /)
   while [[ i -ge 0 ]]; do
     filepath="${filepath:$((i+1))}"
-    i=$(strIndexOf "$filepath" /)
+    i=$(strIndexOf "${filepath}" /)
   done
-  echo "$filepath"
+  echo "${filepath}"
 }
 
 function scpPartFile {
   local partFile="$1"
   local remoteTxDir="$2"
   local counterFile="$3"
-  local destPartPath="${remoteTxDir}/$(stripFileName "$partFile")"
-  local partDest="${dest_host}:${destPartPath}"
-  logVerbose "Starting scp $partFile $partDest"
-  scp "$partFile" "${partDest}"
-  logVerbose "Finished scp $partFile $partDest"
-  echo "$partFile" >> "$counterFile"
+  local destPartPath
+  local partDest
+  destPartPath="${remoteTxDir}/$(stripFileName "${partFile}")"
+  partDest="${dest_host}:${destPartPath}"
+  logVerbose "Starting scp ${partFile} ${partDest}"
+  scp "${partFile}" "${partDest}"
+  logVerbose "Finished scp ${partFile} ${partDest}"
+  echo "${partFile}" >> "${counterFile}"
 }
 
 function waitForCounter {
   local counterFile="$1"
-  local start=$(date +%s)
+  local start
+  local i
+  start=$(date +%s)
   i=1
-  while [ ! -f "$counterFile" ] || [[ "$(wcReturnResult -l "${counterFile}")" != "${threads}" ]]; do
+  while [[ ! -f "${counterFile}" ]] || [[ "$(wcReturnResult -l "${counterFile}")" != "${threads}" ]]; do
     sleep 0.5
     if [[ $((i % 10)) -eq 0 ]]; then 
       logVerbose "Waiting for transaction to finish (started $(($(date +%s)-start)) seconds ago)"
@@ -262,20 +279,21 @@ function calcLocalFileChecksum {
 function execRemote {
   local remoteHost="$1"
   local cmd="$2"
-  ssh -t "$remoteHost" "$cmd"
+  ssh -t "${remoteHost}" "${cmd}"
 }
 
 function calcRemoteFileChecksum {
   local remoteHost="$1"
   local remoteFile="$2"
-  local shaLine=$(execRemote "$remoteHost" "shasum $remoteFile" | tail -1)
-  echo "$shaLine" | sed 's/  *.*//g'
+  local shaLine
+  shaLine=$(execRemote "${remoteHost}" "shasum ${remoteFile}" | tail -1)
+  echo "${shaLine//  *.*/}" #| sed 's/  *.*//g'
 }
 
 function handleSetupCommand {
-  if [[ ! -z "$setup_cmd" ]]; then
-    logVerbose "Handling setup command: $setup_cmd"
-    case $setup_cmd in
+  if [[ -n "${setup_cmd}" ]]; then
+    logVerbose "Handling setup command: ${setup_cmd}"
+    case ${setup_cmd} in
       uninstall)
         uninstallMe
         ;;
@@ -283,7 +301,7 @@ function handleSetupCommand {
         updateMe
         ;;
       *)
-        exitWithError "Unexpected setup command: $setup_cmd"
+        exitWithError "Unexpected setup command: ${setup_cmd}"
         ;;
     esac
     exit 0
@@ -297,66 +315,66 @@ handleSetupCommand
 validateArgs
 
 # Create local transaction directory
-logVerbose "Transaction name: $tx_name"
-local_tx_dir="$local_tmp_dir/$tx_name"
-logVerbose "Local transaction temporary directory: $local_tx_dir"
-mkdir -p $local_tx_dir
+logVerbose "Transaction name: ${tx_name}"
+local_tx_dir="${local_tmp_dir}/${tx_name}"
+logVerbose "Local transaction temporary directory: ${local_tx_dir}"
+mkdir -p "${local_tx_dir}"
 
 # Calculate the file size and the average chunk (part) size
 total_size=$(calcFileSize)
 chunk=$(calcChunkSize)
-logVerbose "Total size: ${total_size} bytes - $((threads-1)) chunks of ${chunk} bytes, 1 chunck of $((total_size-(threads-1)*chunks)) bytes"
+logVerbose "Total size: ${total_size} bytes - $((threads-1)) chunks of ${chunk} bytes, 1 chunck of $((total_size-(threads-1)*chunk)) bytes"
 
 # Split the file to several parts of chunk size into the local transaction directory
-local_file_name=$(stripFileName "$file")
-logVerbose "File name: $local_file_name"
+local_file_name=$(stripFileName "${file}")
+logVerbose "File name: ${local_file_name}"
 part_file_prefix="${local_tx_dir}/${local_file_name}_" 
-logVerbose "Splitting file to ${threads} parts with the following prefix: $part_file_prefix"
-split -b $chunk "$file" "$part_file_prefix"
+logVerbose "Splitting file to ${threads} parts with the following prefix: ${part_file_prefix}"
+split -b "${chunk}" "${file}" "${part_file_prefix}"
 
 # Resolve the remote file path
-remote_file_path="$([[ "$(stripFileName "$dest_path")" == "" ]] && echo "${dest_path}${local_file_name}" || echo "$dest_path")"
+remote_file_path="$([[ "$(stripFileName "${dest_path}")" == "" ]] && echo "${dest_path}${local_file_name}" || echo "${dest_path}")"
 remote_tx_dir="${remote_tmp_dir}/${tx_name}"
-logVerbose "Remote file path: $remote_file_path , Remote TX directory: $remote_tx_dir"
-execRemote "$dest_host" "mkdir $remote_tx_dir"
+logVerbose "Remote file path: ${remote_file_path} , Remote TX directory: ${remote_tx_dir}"
+execRemote "${dest_host}" "mkdir ${remote_tx_dir}"
 
 start_transfer_time="$(date +%s)"
 counter_file="${local_tx_dir}/.counter"
 for f in "${part_file_prefix}"*; do
-  scpPartFile "$f" "$remote_tx_dir" "$counter_file" &
+  scpPartFile "$f" "${remote_tx_dir}" "${counter_file}" &
 done
-waitForCounter "$counter_file"
+waitForCounter "${counter_file}"
 end_transfer_time="$(date +%s)"
 transfer_time="$((end_transfer_time - start_transfer_time))"
-logVerbose "Transfer time: $transfer_time seconds"
+logVerbose "Transfer time: ${transfer_time} seconds"
 
-execRemote "$dest_host" "cat ${remote_tx_dir}/${local_file_name}_* > ${remote_file_path}"
+execRemote "${dest_host}" "cat ${remote_tx_dir}/${local_file_name}_* > ${remote_file_path}"
 end_assembly_time="$(date +%s)"
 assembly_time="$((end_assembly_time - end_transfer_time))"
-logVerbose "Assembly time: $assembly_time seconds"
+logVerbose "Assembly time: ${assembly_time} seconds"
 
-if [[ "$measure_time" == "true" ]]; then 
+if [[ "${measure_time}" == "true" ]]; then
   echo "Timing:"
-  echo "  Transfer: $transfer_time seconds"
-  echo "  Assembly: $assembly_time seconds"
+  echo "  Transfer: ${transfer_time} seconds"
+  echo "  Assembly: ${assembly_time} seconds"
 fi
 
-if [[ "$verify_checksum" != "false" ]]; then
-  local_file_checksum=$(calcLocalFileChecksum "$file")
-  logVerbose "Local file checksum: $local_file_checksum"
-  remote_file_checksum=$(calcRemoteFileChecksum "$dest_host" "$remote_file_path")
-  logVerbose "Remote file checksum: $remote_file_checksum"
-  if [[ "$local_file_checksum" != "$remote_file_checksum" ]]; then
+if [[ "${verify_checksum}" != "false" ]]; then
+  local_file_checksum=$(calcLocalFileChecksum "${file}")
+  logVerbose "Local file checksum: ${local_file_checksum}"
+  remote_file_checksum=$(calcRemoteFileChecksum "${dest_host}" "${remote_file_path}")
+  logVerbose "Remote file checksum: ${remote_file_checksum}"
+  if [[ "${local_file_checksum}" != "${remote_file_checksum}" ]]; then
     exitWithError "Transfer failed (checksum mismatch)"
   fi
 fi
 
-if [[ ! -z "$stats_file" ]]; then
+if [[ -n "${stats_file}" ]]; then
   size=$(calcFileSize)
-  echo "${size},${threads},${transfer_time},${assembly_time}" >> "$stats_file"
+  echo "${size},${threads},${transfer_time},${assembly_time}" >> "${stats_file}"
 fi
 
-if [[ "$skip_cleanup" != "true" ]]; then
+if [[ "${skip_cleanup}" != "true" ]]; then
   logVerbose "Deleting all files in the local transaction directory: ${local_tx_dir}"
   rm -r "${local_tx_dir}"
   logVerbose "Deleting all files in the remote transaction directory: ${dest_host}:${local_tx_dir}"
