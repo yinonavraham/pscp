@@ -3,14 +3,14 @@ set -e
 
 DEFAULT_LOCAL_TMP_DIR='/tmp'
 DEFAULT_REMOTE_TMP_DIR='/tmp'
-DEFAULT_PARALLELISM=10
+DEFAULT_THREADS=10
 VERBOSE=${VERBOSE:-false}
 
 file=''
 dest=''
 dest_host=''
 dest_path=''
-parallelism=$DEFAULT_PARALLELISM
+threads=$DEFAULT_THREADS
 local_tmp_dir=$DEFAULT_LOCAL_TMP_DIR
 remote_tmp_dir=$DEFAULT_REMOTE_TMP_DIR
 verify_checksum=true
@@ -34,14 +34,15 @@ function usage {
   echo "        For example: myuser@other-host:/path/to/dest_file"
   echo ""
   echo "Options"
-  echo "  -p,--parallelism=<value>  Set the parallelism level (default: $DEFAULT_PARALLELISM)."
-  echo "                            This is the number of chunks the file will be split to."
+  echo "  -t,--threads=<value>      Set the number of threads to use (default: $DEFAULT_THREADS)."
+  echo "                            This is the number of chunks the file will be split to"
+  echo "                            and the number of parallel scp processes to run."
   echo "     --no-verify            Skip checksum verification after the transfer."
   echo '     --no-cleanup           Skip cleanup of the temporary files created during the transfer.'
   echo "     --timing               Measure the total transfer time in seconds."
   echo "     --stats-file=<file>    Write (append) transfer statistics to a file in CSV format."
   echo "                            The file has the following columns:"
-  echo "                            Size (B),Parallelism,Transfer Time (Sec),Assembly Time (Sec)"
+  echo "                            Size (B),Threads,Transfer Time (Sec),Assembly Time (Sec)"
   echo "     --setup=<command>      Run a setup command:"
   echo "                              uninstall  - uninstall pscp"
   echo "                              update     - update pscp to its latest version"
@@ -52,7 +53,7 @@ function usage {
   echo "  ${scriptname} myfile myuser@some-other-host:/path/to/"
   echo "    Will transfer a file named 'myfile' in the local directory to the target host"
   echo "    named 'some-other-host' to the destination path '/path/to/myfile', authenticating"
-  echo "    as user 'myuser'. This uses the default settings (e.g. parallelism: ${DEFAULT_PARALLELISM})"
+  echo "    as user 'myuser'. This uses the default settings (e.g. threads: ${DEFAULT_THREADS})"
   echo ""
   exit 0
 }
@@ -110,8 +111,8 @@ function parseArgs {
       	-h|--help)
           usage
           ;;
-      	-p=*|--parallelism=*)
-          parallelism="$(optionValue $arg)"
+      	-t=*|--threads=*)
+          threads="$(optionValue $arg)"
           ;;
         --no-verify)
           verify_checksum=false
@@ -141,8 +142,15 @@ function parseArgs {
            ;;
         2) dest="$arg"
            local colonIndex=$(strIndexOf "$dest" :)
-           dest_host="${dest:0:$colonIndex}"
-           dest_path="${dest:$((colonIndex+1))}"
+
+           # Default to remote home directory if path not set with colon
+           if [ ${colonIndex} -lt 0 ]; then
+               dest_host="${dest}"
+               dest_path='~/'
+           else
+               dest_host="${dest:0:$colonIndex}"
+               dest_path="${dest:$((colonIndex+1))}"
+           fi
            ;;
         *) exitWithError "Unexpected argument: $arg"
            ;;
@@ -153,9 +161,9 @@ function parseArgs {
     i=$((i+1))
   done
 
-  logVerbose "File:         ${file}"
-  logVerbose "Destination:  ${dest} (host: $dest_host , path: $dest_path)"
-  logVerbose "Parallelism:  ${parallelism}"
+  logVerbose "File:          ${file}"
+  logVerbose "Destination:   ${dest} (host: $dest_host , path: $dest_path)"
+  logVerbose "Threads:       ${threads}"
 }
 
 function errorIfEmpty {
@@ -193,7 +201,7 @@ function validateArgs {
   errorIfEmpty "FILE argument is required!" $file
   errorIfEmpty "DEST argument is required!" $dest
   errorIfNotFile "File does not exist or not a regular file: $file" $file
-  errorIfNotNumberBetween "parallelism must be a number in the range: [1..20] (got: ${parallelism})" 1 20 $parallelism
+  errorIfNotNumberBetween "threads must be a number in the range: [1..20] (got: ${threads})" 1 20 $threads
 }
 
 function wcReturnResult {
@@ -208,7 +216,7 @@ function calcFileSize {
 
 function calcChunkSize {
   local size=$(calcFileSize)
-  local chunk=$((size/parallelism + 1))
+  local chunk=$((size/threads + 1))
   echo $chunk
 }
 
@@ -238,7 +246,7 @@ function waitForCounter {
   local counterFile="$1"
   local start=$(date +%s)
   i=1
-  while [ ! -f "$counterFile" ] || [[ "$(wcReturnResult -l "${counterFile}")" != "${parallelism}" ]]; do
+  while [ ! -f "$counterFile" ] || [[ "$(wcReturnResult -l "${counterFile}")" != "${threads}" ]]; do
     sleep 0.5
     if [[ $((i % 10)) -eq 0 ]]; then 
       logVerbose "Waiting for transaction to finish (started $(($(date +%s)-start)) seconds ago)"
@@ -297,13 +305,13 @@ mkdir -p $local_tx_dir
 # Calculate the file size and the average chunk (part) size
 total_size=$(calcFileSize)
 chunk=$(calcChunkSize)
-logVerbose "Total size: ${total_size} bytes - $((parallelism-1)) chunks of ${chunk} bytes, 1 chunck of $((total_size-(parallelism-1)*chunks)) bytes"
+logVerbose "Total size: ${total_size} bytes - $((threads-1)) chunks of ${chunk} bytes, 1 chunck of $((total_size-(threads-1)*chunks)) bytes"
 
 # Split the file to several parts of chunk size into the local transaction directory
 local_file_name=$(stripFileName "$file")
 logVerbose "File name: $local_file_name"
 part_file_prefix="${local_tx_dir}/${local_file_name}_" 
-logVerbose "Splitting file to ${parallelism} parts with the following prefix: $part_file_prefix"
+logVerbose "Splitting file to ${threads} parts with the following prefix: $part_file_prefix"
 split -b $chunk "$file" "$part_file_prefix"
 
 # Resolve the remote file path
@@ -345,7 +353,7 @@ fi
 
 if [[ ! -z "$stats_file" ]]; then
   size=$(calcFileSize)
-  echo "${size},${parallelism},${transfer_time},${assembly_time}" >> "$stats_file"
+  echo "${size},${threads},${transfer_time},${assembly_time}" >> "$stats_file"
 fi
 
 if [[ "$skip_cleanup" != "true" ]]; then
