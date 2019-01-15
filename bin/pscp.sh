@@ -80,7 +80,7 @@ function optionValue {
 }
 
 function installMe {
-  curl -s https://raw.githubusercontent.com/yinonavraham/pscp/master/setup/install.sh | bash
+  curl -s https://raw.githubusercontent.com/yinonavraham/pscp/master/bin/setup/install.sh | bash
 }
 
 function uninstallMe {
@@ -88,7 +88,7 @@ function uninstallMe {
     /usr/local/bin/pscp.d/uninstal.sh
   else
     logVerbose "Local uninstall script not found. Falling back to downloading and executing latest script from github."
-    curl -s https://raw.githubusercontent.com/yinonavraham/pscp/master/setup/uninstall.sh | bash
+    curl -s https://raw.githubusercontent.com/yinonavraham/pscp/master/bin/setup/uninstall.sh | bash
   fi
 }
 

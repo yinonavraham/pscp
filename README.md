@@ -7,7 +7,7 @@ Bash script utility for running secure copy of a file in chunks in parallel.
 From your favorite terminal, run:
 
 ```
-curl -s https://raw.githubusercontent.com/yinonavraham/pscp/master/setup/install.sh | bash
+curl -s https://raw.githubusercontent.com/yinonavraham/pscp/master/bin/setup/install.sh | bash
 ```
 
 ## Usage
