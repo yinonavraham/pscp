@@ -7,7 +7,7 @@ Bash script utility for running secure copy of a file in chunks in parallel.
 From your favorite terminal, run:
 
 ```
-curl -s https://raw.githubusercontent.com/yinonavraham/pscp/master/install.sh | bash
+curl -s https://raw.githubusercontent.com/yinonavraham/pscp/master/setup/install.sh | bash
 ```
 
 ## Usage
@@ -49,6 +49,22 @@ The script performs the following main operations:
 1. Assemble the file in the remote host from all the chunk files.
 1. Verify the checksum of the source file and the remote file is the same.
 1. Cleanup the transaction directories (local and remote).
+
+### Maintenance
+
+**Update**  
+To update `pscp` to its latest version, use:  
+
+```
+pscp --setup=update
+```
+
+**Uninstall**  
+To remove `pscp` installation, use:  
+
+```
+pscp --setup=uninstall
+```
 
 ## Statistics
 
